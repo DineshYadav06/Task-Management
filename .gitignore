@@ -1,5 +1,32 @@
+# Python environment and cache
 env/
+venv/
 .env
+*.env
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 
+# Node / Frontend
+node_modules/
+build/
+dist/
+.next/
+
+# IDE and Editor
+.vscode/
+.idea/
+
+# Logs and Data
+logs/
+*.log
+compass-connections.json
+*.db
+*.sqlite
+*.sqlite3
+
+# OS and misc
+.DS_Store
+Thumbs.db
