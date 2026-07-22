@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '@/types';
-import { authApi } from '@/services/api';
+import { authApi, formatApiError } from '@/services/api';
 import { socketService } from '@/services/socket';
 
 interface AuthState {
@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       socketService.connect(user.id);
       set({ user, token: data.access_token, isAuthenticated: true, isLoading: false });
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Authentication failed. Please check credentials.';
+      const msg = formatApiError(err);
       set({ error: msg, isLoading: false, isAuthenticated: false });
       throw err;
     }
@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await authApi.register(registerData);
       await useAuthStore.getState().login(registerData.username, registerData.password);
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Registration failed.';
+      const msg = formatApiError(err);
       set({ error: msg, isLoading: false });
       throw err;
     }
@@ -60,15 +60,19 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   fetchUser: async () => {
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (!token) {
+      set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+      return;
+    }
     set({ isLoading: true });
     try {
       const user = await authApi.getMe();
       socketService.connect(user.id);
-      set({ user, isAuthenticated: true, isLoading: false });
+      set({ user, token, isAuthenticated: true, isLoading: false });
     } catch {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      socketService.disconnect();
       set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     }
   },
