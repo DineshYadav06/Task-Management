@@ -5,16 +5,25 @@ class SocketService {
   private ws: WebSocket | null = null;
   private userId: number | null = null;
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
+  private subscribedRooms: Set<string> = new Set();
 
   connect(userId: number, rooms: string[] = []) {
-    if (this.ws && this.userId === userId) return;
+    if (this.ws && this.userId === userId && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
     this.userId = userId;
+    rooms.forEach(r => this.subscribedRooms.add(r));
 
-    const roomsParam = rooms.join(',');
+    const roomsParam = Array.from(this.subscribedRooms).join(',');
     const wsUrl = `ws://${window.location.host}/ws/${userId}?rooms=${encodeURIComponent(roomsParam)}`;
     
     try {
       this.ws = new WebSocket(wsUrl);
+      this.ws.onopen = () => {
+        this.subscribedRooms.forEach((room) => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ action: 'subscribe', room }));
+          }
+        });
+      };
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
@@ -31,12 +40,14 @@ class SocketService {
   }
 
   subscribeRoom(room: string) {
+    this.subscribedRooms.add(room);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ action: 'subscribe', room }));
     }
   }
 
   unsubscribeRoom(room: string) {
+    this.subscribedRooms.delete(room);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ action: 'unsubscribe', room }));
     }
