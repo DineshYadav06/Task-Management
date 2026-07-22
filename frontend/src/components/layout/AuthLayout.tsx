@@ -1,58 +1,62 @@
 import React from 'react';
-import { Layers, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Layers, CheckCircle2, ShieldCheck, Building2, Lock } from 'lucide-react';
 
 export const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
-      {/* Left Column: Rich Branding Showcase */}
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 border-r border-border relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -z-10 animate-pulse-glow" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl -z-10" />
-
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30 text-primary-foreground font-extrabold text-xl">
-            <Layers className="w-6 h-6" />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-background text-foreground font-sans">
+      {/* Left Column: Clean Enterprise Branding */}
+      <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-12 bg-slate-900 text-white border-r border-slate-800">
+        <div>
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold shadow-md">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-xl font-extrabold tracking-tight block leading-none">TaskMaster</span>
+              <span className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">Enterprise Cloud</span>
+            </div>
           </div>
-          <span className="text-2xl font-extrabold tracking-tight text-white">TaskMaster Enterprise</span>
-        </div>
 
-        <div className="space-y-6 max-w-lg">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary-foreground text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5" /> Next-Gen SaaS Architecture
+          <div className="space-y-4 max-w-md mt-12">
+            <h1 className="text-3xl font-extrabold tracking-tight leading-snug">
+              Professional command center for agile enterprise engineering teams.
+            </h1>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Consolidate sprint planning, real-time Kanban tracking, structured table grids, and AI bottleneck detection into a single high-velocity platform.
+            </p>
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
-            The All-in-One Command Center for High-Velocity Teams
-          </h1>
-          <p className="text-slate-300 text-base leading-relaxed">
-            Integrate Jira workflows, ClickUp flexibility, Asana timelines, and Monday analytics into a single ultra-responsive workspace with AI Copilot automation.
-          </p>
 
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3 pt-10">
             {[
-              'Real-time drag & drop Kanban board with custom WIP limits',
-              'AI Copilot for executive summaries & priority suggestions',
-              'FullCalendar timelines, sprint burndown charts & timesheet logs',
-              'Enterprise-grade RBAC, custom domains & WebSocket notifications'
+              'Jira & Linear comparable agile workflows and sprints',
+              'Sub-second real-time WebSocket state synchronization',
+              'Role-Based Access Control (RBAC) with audit histories',
+              'AI Copilot for instant task summarization and triage'
             ].map((feat, idx) => (
-              <div key={idx} className="flex items-center gap-3 text-sm text-slate-200">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div key={idx} className="flex items-center gap-3 text-xs text-slate-300">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{feat}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-8 border-t border-slate-800">
-          <span>© 2026 TaskMaster Enterprise SaaS. FAANG-Level Standards.</span>
-          <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-            <ShieldCheck className="w-4 h-4" /> SOC2 & ISO27001 Ready
+        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-8 border-t border-slate-800/80">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-3.5 h-3.5 text-blue-400" />
+            <span>SOC2 Type II & ISO27001 Certified Architecture</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+            <Lock className="w-3.5 h-3.5" /> E2E Encrypted
           </div>
         </div>
       </div>
 
-      {/* Right Column: Interactive Form */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8">{children}</div>
+      {/* Right Column: Clean White Authentication Surface */}
+      <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 bg-background">
+        <div className="w-full max-w-md bg-surface border border-border rounded-xl shadow-sm p-8 space-y-6">
+          {children}
+        </div>
       </div>
     </div>
   );
