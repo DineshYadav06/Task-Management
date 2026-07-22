@@ -2,7 +2,7 @@
 Database configuration and session management for SQLAlchemy 2.
 """
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
@@ -24,6 +24,32 @@ engine = create_engine(
 
 # Create session factory
 LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@event.listens_for(LocalSession, "after_commit")
+def after_commit_listener(session):
+    """Automatically sync newly inserted, modified, or deleted models to MongoDB Atlas."""
+    try:
+        from app.core.mongodb import mongodb_manager
+        if not mongodb_manager.is_connected:
+            return
+        for obj in session.new:
+            try:
+                mongodb_manager.save_model_to_mongodb(obj)
+            except Exception:
+                pass
+        for obj in session.dirty:
+            try:
+                mongodb_manager.save_model_to_mongodb(obj)
+            except Exception:
+                pass
+        for obj in session.deleted:
+            try:
+                mongodb_manager.delete_model_from_mongodb(obj)
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def get_db():
