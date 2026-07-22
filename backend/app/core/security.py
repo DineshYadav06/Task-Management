@@ -78,6 +78,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login", auto_error=False)
+
+
+def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)) -> Optional[Any]:
+    """Dependency for optional authentication (allows guest entry without login)."""
+    if not token:
+        return None
+    try:
+        return get_current_user(token=token, db=db)
+    except Exception:
+        return None
+
+
 def require_roles(allowed_roles: List[str]):
     """
     Dependency factory function enforcing Role-Based Access Control (RBAC).
