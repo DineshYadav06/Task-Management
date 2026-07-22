@@ -1,9 +1,9 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.workspace import Workspace, WorkspacePermission, WorkspaceAnalytics
 from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceAnalyticsResponse
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/workspaces", tags=["Workspace Management"])
 @router.get("", response_model=List[WorkspaceResponse])
 def list_workspaces(
     org_id: int = None,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List workspaces across organization or accessible by user."""
@@ -55,7 +55,7 @@ def create_workspace(
 @router.get("/{workspace_id}", response_model=WorkspaceResponse)
 def get_workspace(
     workspace_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Retrieve details for a specific workspace."""
@@ -68,7 +68,7 @@ def get_workspace(
 @router.get("/{workspace_id}/analytics", response_model=WorkspaceAnalyticsResponse)
 def get_workspace_analytics(
     workspace_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Get aggregated metrics and productivity KPI for a workspace."""
