@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Loader2 } from 'lucide-react';
+import { LogIn, Loader2, ShieldAlert, Eye, EyeOff, CheckSquare, Square } from 'lucide-react';
 import { useAuthStore } from '@/store';
 
 export const LoginPage: React.FC = () => {
@@ -8,71 +8,134 @@ export const LoginPage: React.FC = () => {
   const { login, isLoading, error } = useAuthStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState('');
+
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('remembered_username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setForgotMsg('');
     try {
+      if (rememberMe) {
+        localStorage.setItem('remembered_username', username);
+      } else {
+        localStorage.removeItem('remembered_username');
+      }
       await login(username, password);
-      navigate('/kanban');
+      navigate('/dashboard');
     } catch {
-      // error state handled in store
+      // error state handled cleanly in store via formatApiError
     }
   };
 
+  const handleForgotPassword = () => {
+    setForgotMsg('Please contact your Workspace Administrator or IT support desk to initiate a secure credential reset.');
+  };
+
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-extrabold tracking-tight">Welcome Back</h2>
-        <p className="text-muted-foreground text-sm">
-          Sign in to access your enterprise workspaces and live boards
+    <div className="space-y-6 animate-fadeIn font-sans">
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold tracking-tight text-heading">Sign in to workspace</h2>
+        <p className="text-muted text-xs">
+          Enter your organization credentials to access active sprints and boards.
         </p>
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold">
-          {error}
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs font-semibold flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <span className="leading-relaxed">{error}</span>
+        </div>
+      )}
+
+      {forgotMsg && (
+        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 text-xs font-medium leading-relaxed">
+          {forgotMsg}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Username or Email</label>
+          <label className="block text-xs font-bold text-heading mb-1.5">Username or Email</label>
           <input
             type="text"
             required
+            disabled={isLoading}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Enter username..."
+            className="w-full bg-background border border-border rounded-lg px-3.5 py-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted/60 disabled:opacity-50"
+            placeholder="e.g. alex.morgan or alex@enterprise.com"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Password</label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="••••••••"
-          />
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-bold text-heading">Password</label>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-[11px] text-primary hover:underline cursor-pointer font-medium focus:outline-none"
+            >
+              Forgot password?
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              disabled={isLoading}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-background border border-border rounded-lg pl-3.5 pr-10 py-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted/60 disabled:opacity-50"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground focus:outline-none transition-colors"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <button
+            type="button"
+            onClick={() => setRememberMe(!rememberMe)}
+            className="flex items-center gap-2 text-xs text-muted hover:text-foreground transition-colors focus:outline-none select-none"
+          >
+            {rememberMe ? (
+              <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+            ) : (
+              <Square className="w-4 h-4 text-muted shrink-0" />
+            )}
+            <span className="font-medium">Remember my username</span>
+          </button>
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm shadow-lg shadow-primary/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          className="w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2"
         >
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-          <span>Sign In to Platform</span>
+          <span>{isLoading ? 'Authenticating...' : 'Continue to Workspace'}</span>
         </button>
       </form>
 
-      <div className="text-center text-xs text-muted-foreground">
-        Don't have an organization account yet?{' '}
+      <div className="pt-4 border-t border-border text-center text-xs text-muted">
+        Don't have an organization account?{' '}
         <Link to="/register" className="text-primary font-bold hover:underline">
-          Create Enterprise Account
+          Request Enterprise Invite / Register
         </Link>
       </div>
     </div>
