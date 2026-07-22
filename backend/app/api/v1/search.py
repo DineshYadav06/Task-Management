@@ -1,9 +1,9 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.task import TaskModel, Comment, TaskAttachment
 from app.models.project import Project
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/search", tags=["Global Enterprise Search"])
 @router.get("/query", response_model=Dict[str, Any])
 def global_search(
     q: str = Query(..., min_length=2, description="Search query string across tasks, projects, comments, and users"),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
