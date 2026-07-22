@@ -1,9 +1,9 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.project import Project, Milestone, Roadmap, Release, BudgetTrack, RiskTrack
 from app.models.kanban import BoardColumn
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/projects", tags=["Project & Strategic Management"])
 @router.get("", response_model=List[ProjectResponse])
 def list_projects(
     workspace_id: int = None,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List all projects across workspace or organization."""
@@ -68,7 +68,7 @@ def create_project(
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(
     project_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Retrieve comprehensive project details including columns and milestones."""
@@ -101,7 +101,7 @@ def update_project(
 @router.get("/{project_id}/health", response_model=HealthScoreResponse)
 def get_or_evaluate_project_health(
     project_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Evaluate or fetch live heuristic & AI health score for a project."""
