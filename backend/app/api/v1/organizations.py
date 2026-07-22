@@ -1,9 +1,9 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user, require_roles
+from app.core.security import get_current_user, require_roles, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.organization import Organization, OrganizationMember, OrganizationSetting, BillingInfo
 from app.schemas.organization import OrgCreate, OrgResponse, OrgMemberResponse, InviteRequest
@@ -14,10 +14,12 @@ router = APIRouter(prefix="/organizations", tags=["Organization Management"])
 
 @router.get("", response_model=List[OrgResponse])
 def list_organizations(
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List all organizations the current user is a member of."""
+    if not current_user:
+        return db.query(Organization).all()
     memberships = db.query(OrganizationMember).filter(OrganizationMember.user_id == current_user.id).all()
     org_ids = [m.organization_id for m in memberships]
     orgs = db.query(Organization).filter(Organization.id.in_(org_ids)).all()
@@ -62,7 +64,7 @@ def create_organization(
 @router.get("/{org_id}", response_model=OrgResponse)
 def get_organization(
     org_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Retrieve details for a specific organization."""
@@ -75,7 +77,7 @@ def get_organization(
 @router.get("/{org_id}/members", response_model=List[OrgMemberResponse])
 def get_org_members(
     org_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List all members inside an organization."""
