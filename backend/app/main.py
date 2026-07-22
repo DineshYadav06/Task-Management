@@ -1,3 +1,8 @@
+import sys
+import asyncio
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import logging
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
@@ -37,14 +42,46 @@ app.add_middleware(
 # Include Versioned API v1 Router
 app.include_router(api_v1_router)
 
+# Include Legacy & Backward-Compatible API Router (/users/..., /tasks/...)
+from app.api.legacy import legacy_router
+app.include_router(legacy_router)
+
+# Include Enterprise Beanie MongoDB Router (/api/v2/mongo/...)
+from app.mongodb_engine.router import mongo_router
+app.include_router(mongo_router)
 
 
-# Create database tables automatically on startup
+@app.on_event("startup")
+async def startup_beanie_engine():
+    """Async startup initialization for Beanie ODM across all 29 MongoDB collections."""
+    try:
+        from app.mongodb_engine import init_beanie_db
+        await init_beanie_db()
+        logger.info("Successfully initialized Beanie ODM and Motor async connection across 29 collections.")
+    except Exception as exc:
+        logger.warning(f"Beanie ODM initialization deferred or failed (MongoDB may not be running locally): {exc}")
+
+
+# Create database tables automatically on startup and initialize MongoDB Atlas sync
 @app.on_event("startup")
 def on_startup():
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("Successfully registered and initialized database schema.")
+        
+        # Initialize MongoDB Atlas synchronization
+        from app.core.mongodb import mongodb_manager
+        from app.core.database import LocalSession
+        
+        mongodb_manager.init_db()
+        
+        # Seed default enterprise accounts (e.g. dineshkumaryadav12651@gmail.com) and tasks
+        db = LocalSession()
+        try:
+            mongodb_manager.seed_default_enterprise_data(db)
+        finally:
+            db.close()
+            
     except Exception as exc:
         logger.warning(f"Database initialization deferred or failed: {exc}")
 
