@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.timetracking import TimeLog, Timesheet
 from app.models.task import TaskModel
@@ -108,10 +108,12 @@ def add_manual_time_log(
 @router.get("/logs", response_model=List[TimeLogResponse])
 def get_user_time_logs(
     task_id: int = Query(None),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Get time tracking logs."""
+    if not current_user:
+        return []
     query = db.query(TimeLog).filter(TimeLog.user_id == current_user.id)
     if task_id:
         query = query.filter(TimeLog.task_id == task_id)
@@ -121,10 +123,16 @@ def get_user_time_logs(
 @router.get("/timesheet", response_model=StandardResponse)
 def get_weekly_timesheet(
     week_start: str = Query(..., description="ISO start date of the week"),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Summarize user hours by task for a weekly timesheet report."""
+    if not current_user:
+        return StandardResponse(
+            status="success",
+            message="Timesheet report generated",
+            data={"week_start": week_start, "total_hours": 0.0, "entries_count": 0}
+        )
     logs = db.query(TimeLog).filter(
         TimeLog.user_id == current_user.id,
         TimeLog.is_running == False
