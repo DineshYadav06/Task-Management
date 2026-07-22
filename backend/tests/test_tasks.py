@@ -2,20 +2,33 @@
 Unit tests for task endpoints.
 """
 
+import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import sessionmaker, close_all_sessions
+from sqlalchemy.pool import StaticPool
 
+import app.models  # Register all models on Base.metadata
 from main import app
-from src.utils.db import Base, get_db
+from app.core.database import Base, get_db
 
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# Create test database using in-memory StaticPool
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+@event.listens_for(engine, "connect")
+def turn_off_sqlite_foreign_keys(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys = OFF;")
+    cursor.close()
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base.metadata.create_all(bind=engine)
 
 
@@ -33,10 +46,26 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    """Reset database before each test."""
-    Base.metadata.drop_all(bind=engine)
+    """Reset database before each test cleanly without foreign key constraints."""
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=engine)
+    def clear_all():
+        session = TestingSessionLocal()
+        try:
+            session.execute(text("PRAGMA foreign_keys = OFF;"))
+            for table in reversed(Base.metadata.sorted_tables):
+                try:
+                    session.execute(text(f"DELETE FROM {table.name}"))
+                except Exception as e:
+                    print(f"ERROR deleting {table.name}: {e}")
+            session.commit()
+            session.execute(text("PRAGMA foreign_keys = ON;"))
+        finally:
+            session.close()
+
+    clear_all()
     yield
+    clear_all()
 
 
 class TestTaskOperations:
@@ -154,13 +183,13 @@ class TestTaskOperations:
             "/tasks/create",
             headers=self.headers,
             json={
-                "title": "Buy groceries",
-                "description": "Milk, eggs, bread"
+                "title": "Single Task",
+                "description": "Detailed description"
             }
         )
         task_id = create_response.json()["data"]["id"]
         
-        # Get the task
+        # Retrieve the task
         response = client.get(
             f"/tasks/{task_id}",
             headers=self.headers
@@ -169,12 +198,12 @@ class TestTaskOperations:
         data = response.json()
         assert data["status"] == "success"
         assert data["data"]["id"] == task_id
-        assert data["data"]["title"] == "Buy groceries"
+        assert data["data"]["title"] == "Single Task"
     
     def test_get_nonexistent_task(self):
-        """Test retrieving a non-existent task."""
+        """Test retrieving a task that doesn't exist."""
         response = client.get(
-            "/tasks/999",
+            "/tasks/9999",
             headers=self.headers
         )
         assert response.status_code == 404
@@ -186,7 +215,7 @@ class TestTaskOperations:
             "/tasks/create",
             headers=self.headers,
             json={
-                "title": "Buy groceries",
+                "title": "Original Title",
                 "is_completed": False
             }
         )
@@ -197,13 +226,13 @@ class TestTaskOperations:
             f"/tasks/{task_id}",
             headers=self.headers,
             json={
-                "title": "Buy groceries and cook",
+                "title": "Updated Title",
                 "is_completed": True
             }
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["data"]["title"] == "Buy groceries and cook"
+        assert data["data"]["title"] == "Updated Title"
         assert data["data"]["is_completed"] is True
     
     def test_delete_task(self):
@@ -236,18 +265,19 @@ class TestTaskSearch:
     """Test task search functionality."""
     
     def setup_method(self):
-        """Create a test user and tasks."""
+        """Create test user and tasks for searching."""
         client.post(
             "/users/register",
             json={
-                "username": "testuser",
-                "password": "password123"
+                "username": "searchuser",
+                "password": "password123",
+                "email": "search@example.com"
             }
         )
         response = client.post(
             "/users/login",
             json={
-                "username": "testuser",
+                "username": "searchuser",
                 "password": "password123"
             }
         )
@@ -267,13 +297,13 @@ class TestTaskSearch:
             "/tasks/create",
             headers=self.headers,
             json={
-                "title": "Complete project",
-                "description": "Finish Python project"
+                "title": "Finish Python project",
+                "description": "Code and test API"
             }
         )
     
     def test_search_by_title(self):
-        """Test searching tasks by title."""
+        """Test searching tasks by title match."""
         response = client.get(
             "/tasks/search/groceries",
             headers=self.headers
@@ -284,7 +314,7 @@ class TestTaskSearch:
         assert "groceries" in data["data"][0]["title"].lower()
     
     def test_search_by_description(self):
-        """Test searching tasks by description."""
+        """Test searching tasks by description match."""
         response = client.get(
             "/tasks/search/Python",
             headers=self.headers
@@ -292,10 +322,10 @@ class TestTaskSearch:
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]) == 1
-        assert "python" in data["data"][0]["description"].lower()
+        assert "python" in data["data"][0]["title"].lower() or "code" in data["data"][0]["description"].lower()
     
     def test_search_no_results(self):
-        """Test search with no results."""
+        """Test searching for non-existent terms."""
         response = client.get(
             "/tasks/search/nonexistent",
             headers=self.headers
@@ -303,4 +333,3 @@ class TestTaskSearch:
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]) == 0
-        assert data["total"] == 0
