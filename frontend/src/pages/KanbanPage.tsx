@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
 import { TaskDetailModal } from '@/components/task/TaskDetailModal';
-import { FolderKanban, Sparkles, AlertCircle } from 'lucide-react';
+import { FolderKanban, Sparkles, Plus, ListTodo, Calendar as CalendarIcon } from 'lucide-react';
 import { projectApi } from '@/services/api';
 
 export const KanbanPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentProject } = useAppStore();
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [healthScore, setHealthScore] = useState<{ score: number; status: string; bottlenecks_count?: number } | null>(null);
+  const [healthScore, setHealthScore] = useState<{ score: number; status: string } | null>(null);
 
   useEffect(() => {
     const taskIdParam = searchParams.get('task');
@@ -41,53 +42,87 @@ export const KanbanPage: React.FC = () => {
   if (!currentProject) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-4 animate-fadeIn">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-2">
-          <FolderKanban className="w-8 h-8" />
+        <div className="w-14 h-14 rounded-2xl bg-primary/15 text-primary border border-primary/20 flex items-center justify-center mb-1 shadow-sm">
+          <FolderKanban className="w-7 h-7" />
         </div>
-        <h3 className="text-xl font-bold">No Project Selected</h3>
-        <p className="text-muted-foreground text-sm max-w-md">
-          Please select a project from the left sidebar or create your first project inside this workspace to view the Kanban board.
+        <h3 className="text-xl font-bold text-heading">No Project Selected</h3>
+        <p className="text-muted text-xs max-w-md leading-relaxed">
+          Select an active engineering project from the left sidebar or initialize a new repository to launch the drag-and-drop Kanban board.
         </p>
+        <button
+          onClick={() => navigate('/projects')}
+          className="px-4 py-2 rounded-lg bg-primary text-white font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs"
+        >
+          <Plus className="w-4 h-4" /> Go to Projects Directory
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col space-y-4 animate-fadeIn">
+    <div className="h-full flex flex-col space-y-4 animate-fadeIn pb-6">
       {/* Project Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
+            <span className="font-mono font-bold text-xs bg-primary/15 text-primary border border-primary/20 px-2 py-0.5 rounded">
               {currentProject.key}
             </span>
-            <h2 className="text-2xl font-extrabold tracking-tight">{currentProject.name}</h2>
+            <h1 className="text-2xl font-extrabold tracking-tight text-heading">{currentProject.name}</h1>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {currentProject.description || 'Active Sprint Kanban Board with Real-time WebSocket Sync'}
+          <p className="text-xs text-muted mt-0.5">
+            {currentProject.description || 'Continuous Kanban Sprint Board with WebSocket Synchronization'}
           </p>
         </div>
 
-        {/* AI Health Score Badge */}
-        {healthScore && (
-          <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-secondary/40 border border-border">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-400">
-              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-              <span>Project Health:</span>
-            </div>
-            <span
-              className={`font-black text-sm px-2 py-0.5 rounded ${
-                healthScore.score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : healthScore.score >= 50 ? 'bg-amber-500/20 text-amber-300' : 'bg-red-500/20 text-red-400'
-              }`}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Quick View Switchers */}
+          <div className="flex items-center bg-surface border border-border rounded-lg p-0.5 shadow-2xs text-xs font-semibold">
+            <button
+              onClick={() => navigate('/kanban')}
+              className="px-3 py-1 rounded-md bg-primary/15 text-primary font-bold flex items-center gap-1.5"
             >
-              {healthScore.score}% ({healthScore.status || 'Healthy'})
-            </span>
+              <FolderKanban className="w-3.5 h-3.5" /> Board
+            </button>
+            <button
+              onClick={() => navigate('/list')}
+              className="px-3 py-1 rounded-md text-muted hover:text-heading flex items-center gap-1.5 transition-colors"
+            >
+              <ListTodo className="w-3.5 h-3.5" /> Table
+            </button>
+            <button
+              onClick={() => navigate('/calendar')}
+              className="px-3 py-1 rounded-md text-muted hover:text-heading flex items-center gap-1.5 transition-colors"
+            >
+              <CalendarIcon className="w-3.5 h-3.5" /> Timeline
+            </button>
           </div>
-        )}
+
+          {/* AI Health Score Badge */}
+          {healthScore && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border shadow-2xs">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-heading">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Health:</span>
+              </div>
+              <span
+                className={`font-black text-xs px-2 py-0.5 rounded ${
+                  healthScore.score >= 80
+                    ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/20'
+                    : healthScore.score >= 50
+                    ? 'bg-amber-500/15 text-amber-600 border border-amber-500/20'
+                    : 'bg-red-500/15 text-red-600 border border-red-500/20'
+                }`}
+              >
+                {healthScore.score}% ({healthScore.status || 'Stable'})
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Kanban Board Container */}
-      <div className="flex-1 overflow-hidden">
+      {/* Kanban Board Area */}
+      <div className="flex-1 overflow-hidden min-h-[500px]">
         <KanbanBoard
           projectId={currentProject.id}
           onSelectTask={handleSelectTask}
