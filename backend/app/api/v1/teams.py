@@ -1,9 +1,9 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.team import Department, Team, TeamMember
 from app.schemas.team import DepartmentCreate, DepartmentResponse, TeamCreate, TeamResponse, TeamMemberResponse
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/teams", tags=["Department & Team Management"])
 @router.get("/departments", response_model=List[DepartmentResponse])
 def list_departments(
     org_id: int = None,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List all departments within an organization."""
@@ -41,7 +41,7 @@ def create_department(
 @router.get("", response_model=List[TeamResponse])
 def list_teams(
     dept_id: int = None,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List teams, optionally filtered by department."""
@@ -75,7 +75,7 @@ def create_team(
 @router.get("/{team_id}/members", response_model=List[TeamMemberResponse])
 def list_team_members(
     team_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Get all members inside a team."""
