@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.task import (
     TaskModel, TaskVersionHistory, Checklist, ChecklistItem,
@@ -32,7 +32,7 @@ def list_tasks(
     parent_id: Optional[int] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Retrieve filtered and paginated list of tasks across enterprise projects."""
@@ -138,7 +138,7 @@ async def create_task(
 @router.get("/{task_id}", response_model=TaskResponse)
 def get_task(
     task_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Retrieve full detail view of a task including comments and checklists."""
