@@ -1,9 +1,9 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.kanban import BoardColumn
 from app.models.task import TaskModel, ActivityTimeline
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/kanban", tags=["Kanban Board & Drag-and-Drop Operati
 @router.get("/columns", response_model=List[BoardColumnResponse])
 def list_board_columns(
     project_id: int,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """List all Kanban columns for a project ordered by swimlane position."""
