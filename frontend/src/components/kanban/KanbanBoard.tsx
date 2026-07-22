@@ -16,7 +16,6 @@ interface Props {
 export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
   const queryClient = useQueryClient();
   const [filterPriority, setFilterPriority] = useState<string>('ALL');
-  const [filterAssignee, setFilterAssignee] = useState<string>('ALL');
   const [newColumnModal, setNewColumnModal] = useState(false);
   const [colName, setColName] = useState('');
   const [colWip, setColWip] = useState<number>(0);
@@ -40,14 +39,29 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
     enabled: !!projectId,
   });
 
-  // WebSocket sync for real-time task movement
+  // WebSocket sync for real-time task lifecycle updates
   useEffect(() => {
-    const handleTaskMoved = (payload: any) => {
+    if (!projectId) return;
+    socketService.subscribeRoom(`project_${projectId}`);
+
+    const handleTaskRefresh = () => {
       queryClient.invalidateQueries({ queryKey: ['project_tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['kanban_columns', projectId] });
     };
-    socketService.on('kanban:task_moved', handleTaskMoved);
+
+    socketService.on('task:moved', handleTaskRefresh);
+    socketService.on('kanban:task_moved', handleTaskRefresh);
+    socketService.on('task:created', handleTaskRefresh);
+    socketService.on('task:updated', handleTaskRefresh);
+    socketService.on('task:deleted', handleTaskRefresh);
+
     return () => {
-      socketService.off('kanban:task_moved', handleTaskMoved);
+      socketService.unsubscribeRoom(`project_${projectId}`);
+      socketService.off('task:moved', handleTaskRefresh);
+      socketService.off('kanban:task_moved', handleTaskRefresh);
+      socketService.off('task:created', handleTaskRefresh);
+      socketService.off('task:updated', handleTaskRefresh);
+      socketService.off('task:deleted', handleTaskRefresh);
     };
   }, [projectId, queryClient]);
 
@@ -71,7 +85,7 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(['project_tasks', projectId], context.previousTasks);
       }
-      alert('Failed to move task');
+      alert('Failed to move task. Verifying board state.');
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['project_tasks', projectId] });
@@ -133,27 +147,28 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-full space-y-4">
-        {/* Kanban Top Toolbar */}
-        <div className="flex items-center justify-between gap-4 pb-2 border-b border-border">
+        {/* Kanban Toolbar */}
+        <div className="flex items-center justify-between gap-4 pb-3 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold bg-secondary px-3 py-1.5 rounded-lg border border-border">
+            <div className="flex items-center gap-2 text-xs font-semibold bg-surface px-3 py-1.5 rounded-lg border border-border shadow-2xs">
               <Filter className="w-3.5 h-3.5 text-primary" />
-              <span>Priority:</span>
+              <span className="text-muted">Filter Priority:</span>
               <select
                 value={filterPriority}
                 onChange={(e) => setFilterPriority(e.target.value)}
-                className="bg-transparent font-bold cursor-pointer outline-none text-foreground"
+                className="bg-transparent font-bold cursor-pointer outline-none text-heading"
               >
-                <option value="ALL">All Levels</option>
+                <option value="ALL">All Priorities</option>
                 <option value="URGENT">Urgent</option>
                 <option value="HIGH">High</option>
                 <option value="MEDIUM">Medium</option>
                 <option value="LOW">Low</option>
               </select>
             </div>
+
             <button
               onClick={() => queryClient.invalidateQueries({ queryKey: ['project_tasks', projectId] })}
-              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground text-xs flex items-center gap-1"
+              className="p-1.5 rounded-lg bg-surface hover:bg-secondary text-muted hover:text-heading text-xs flex items-center gap-1 border border-border shadow-2xs transition-colors"
               title="Refresh Board"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -162,20 +177,20 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
 
           <button
             onClick={() => setNewColumnModal(true)}
-            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+            className="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-all"
           >
             <Plus className="w-4 h-4" /> Add Column
           </button>
         </div>
 
-        {/* Board Columns Horizontal Scroll */}
-        <div className="flex-1 flex items-start gap-4 overflow-x-auto pb-4 pt-1">
+        {/* Horizontal Columns Container */}
+        <div className="flex-1 flex items-start gap-5 overflow-x-auto pb-6 pt-1">
           {columns.length === 0 ? (
-            <div className="w-full h-64 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-3 text-muted-foreground">
-              <p className="text-sm font-semibold">No board columns setup for this project.</p>
+            <div className="w-full h-64 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-3 text-muted bg-surface">
+              <p className="text-xs font-bold text-heading">No board columns set up for this project.</p>
               <button
                 onClick={() => setNewColumnModal(true)}
-                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold"
+                className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold shadow-xs"
               >
                 Create First Column (e.g. To Do, In Progress, Done)
               </button>
@@ -199,34 +214,34 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
 
         {/* New Column Modal */}
         {newColumnModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 space-y-4">
-              <h3 className="font-bold text-base">Add New Board Column</h3>
-              <form onSubmit={handleCreateColumn} className="space-y-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs animate-fadeIn p-4">
+            <div className="w-full max-w-sm bg-surface border border-border rounded-xl shadow-lg p-6 space-y-4">
+              <h3 className="font-bold text-base text-heading">Add Board Column</h3>
+              <form onSubmit={handleCreateColumn} className="space-y-3.5">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Column Name</label>
+                  <label className="text-xs font-bold text-heading block mb-1">Column Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. QA Verification"
                     value={colName}
                     onChange={(e) => setColName(e.target.value)}
-                    className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground">WIP Limit (0 for unlimited)</label>
+                  <label className="text-xs font-bold text-heading block mb-1">WIP Limit (0 for unlimited)</label>
                   <input
                     type="number"
                     min={0}
                     value={colWip}
                     onChange={(e) => setColWip(Number(e.target.value))}
-                    className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setNewColumnModal(false)} className="px-3 py-1.5 rounded text-xs hover:bg-secondary">Cancel</button>
-                  <button type="submit" className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-xs font-semibold">Create Column</button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <button type="button" onClick={() => setNewColumnModal(false)} className="px-3 py-1.5 rounded-lg text-xs hover:bg-secondary text-muted">Cancel</button>
+                  <button type="submit" className="px-3.5 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold shadow-xs hover:bg-primary-hover">Create Column</button>
                 </div>
               </form>
             </div>
@@ -235,12 +250,12 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
 
         {/* Quick Add Task Modal */}
         {quickAddModal.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 space-y-4">
-              <h3 className="font-bold text-base">Quick Add Task</h3>
-              <form onSubmit={handleQuickAddTask} className="space-y-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs animate-fadeIn p-4">
+            <div className="w-full max-w-md bg-surface border border-border rounded-xl shadow-lg p-6 space-y-4">
+              <h3 className="font-bold text-base text-heading">Add Task to Board</h3>
+              <form onSubmit={handleQuickAddTask} className="space-y-3.5">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Task Title</label>
+                  <label className="text-xs font-bold text-heading block mb-1">Task Title</label>
                   <input
                     type="text"
                     required
@@ -248,15 +263,15 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
                     placeholder="e.g. Implement OAuth2 Refresh token rotation"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Priority Level</label>
+                  <label className="text-xs font-bold text-heading block mb-1">Priority Level</label>
                   <select
                     value={newTaskPriority}
                     onChange={(e) => setNewTaskPriority(e.target.value)}
-                    className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm font-bold"
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs font-bold text-heading focus:ring-2 focus:ring-primary outline-none cursor-pointer"
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
@@ -264,9 +279,9 @@ export const KanbanBoard: React.FC<Props> = ({ projectId, onSelectTask }) => {
                     <option value="URGENT">Urgent</option>
                   </select>
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setQuickAddModal({ open: false, columnId: null })} className="px-3 py-1.5 rounded text-xs hover:bg-secondary">Cancel</button>
-                  <button type="submit" className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-xs font-semibold">Save Task</button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <button type="button" onClick={() => setQuickAddModal({ open: false, columnId: null })} className="px-3 py-1.5 rounded-lg text-xs hover:bg-secondary text-muted">Cancel</button>
+                  <button type="submit" className="px-3.5 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold shadow-xs hover:bg-primary-hover">Save Task</button>
                 </div>
               </form>
             </div>
