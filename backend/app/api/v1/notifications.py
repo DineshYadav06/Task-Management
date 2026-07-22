@@ -1,11 +1,11 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.models.auth import UserModel
 from app.models.notification import Notification
 from app.schemas.common import StandardResponse
@@ -28,10 +28,12 @@ class NotificationResponse(BaseModel):
 @router.get("", response_model=List[NotificationResponse])
 def get_user_notifications(
     unread_only: bool = False,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Any:
     """Get chronological feed of personal notifications."""
+    if not current_user:
+        return []
     query = db.query(Notification).filter(Notification.user_id == current_user.id)
     if unread_only:
         query = query.filter(Notification.is_read == False)
@@ -40,10 +42,12 @@ def get_user_notifications(
 
 @router.get("/unread-count", response_model=Dict[str, int])
 def get_unread_count(
-    current_user: UserModel = Depends(get_current_user),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Dict[str, int]:
     """Get badge count of unread notifications."""
+    if not current_user:
+        return {"unread_count": 0}
     count = db.query(Notification).filter(Notification.user_id == current_user.id, Notification.is_read == False).count()
     return {"unread_count": count}
 
