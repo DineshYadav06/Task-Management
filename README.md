@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="./frontend/public/taskmaster-logo.svg" alt="TaskMaster Logo" width="120" height="120" />
   <h1>TaskMaster - Enterprise SaaS Task Management Platform</h1>
   
   <p><strong>A full-stack, enterprise-grade task and project management application inspired by Jira, ClickUp, and Asana.</strong></p>
