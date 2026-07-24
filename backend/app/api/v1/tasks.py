@@ -193,7 +193,7 @@ async def update_task(
         await socket_manager.broadcast_to_room(
             f"project_{task.project_id}",
             "task:updated",
-            {"task_id": task.id, "status": task.status, "column_id": task.column_id}
+            {"task_id": task.id, "title": task.title, "column_id": task.column_id}
         )
 
     return task
@@ -211,6 +211,7 @@ async def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
     
     project_id = task.project_id
+    
     db.delete(task)
     db.commit()
 

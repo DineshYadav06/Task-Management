@@ -25,3 +25,10 @@ class PaginatedResponse(BaseModel, Generic[DataT]):
     total_pages: int
     items: List[DataT]
     model_config = ConfigDict(from_attributes=True)
+
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    subject: str
+    message: str

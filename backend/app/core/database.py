@@ -26,6 +26,14 @@ engine = create_engine(
 LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+@event.listens_for(LocalSession, "before_commit")
+def before_commit_listener(session):
+    session._changes = {
+        "new": list(session.new),
+        "dirty": list(session.dirty),
+        "deleted": list(session.deleted)
+    }
+
 @event.listens_for(LocalSession, "after_commit")
 def after_commit_listener(session):
     """Automatically sync newly inserted, modified, or deleted models to MongoDB Atlas."""
@@ -33,17 +41,22 @@ def after_commit_listener(session):
         from app.core.mongodb import mongodb_manager
         if not mongodb_manager.is_connected:
             return
-        for obj in session.new:
+            
+        changes = getattr(session, "_changes", None)
+        if not changes:
+            return
+            
+        for obj in changes["new"]:
             try:
                 mongodb_manager.save_model_to_mongodb(obj)
             except Exception:
                 pass
-        for obj in session.dirty:
+        for obj in changes["dirty"]:
             try:
                 mongodb_manager.save_model_to_mongodb(obj)
             except Exception:
                 pass
-        for obj in session.deleted:
+        for obj in changes["deleted"]:
             try:
                 mongodb_manager.delete_model_from_mongodb(obj)
             except Exception:

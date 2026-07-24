@@ -178,7 +178,7 @@ export const TaskDetailModal: React.FC<Props> = ({ taskId, isOpen, onClose, onTa
               onChange={(e) => handleUpdateField('status', e.target.value as TaskStatus)}
               className="text-xs font-bold uppercase px-3 py-1 rounded bg-surface border border-border text-heading cursor-pointer focus:ring-1 focus:ring-primary outline-none shadow-2xs"
             >
-              {['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'BLOCKED'].map((st) => (
+              {['DRAFT', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'BLOCKED'].map((st) => (
                 <option key={st} value={st}>{st}</option>
               ))}
             </select>

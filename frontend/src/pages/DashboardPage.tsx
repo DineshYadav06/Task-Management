@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import { useAppStore, useAuthStore } from '@/store';
-import { taskApi, projectApi, sprintApi, orgApi } from '@/services/api';
+import { taskApi, projectApi, sprintApi, orgApi, aiApi } from '@/services/api';
 import { Task, Project, Sprint } from '@/types';
 import {
   CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Sparkles, Plus,
@@ -15,6 +15,7 @@ import {
   GitCommit, ShieldCheck, HelpCircle, ExternalLink, RefreshCw
 } from 'lucide-react';
 import { format, isAfter, isBefore, addDays, subDays } from 'date-fns';
+import { socketService } from '@/services/socket';
 import { QuickCreateTaskModal } from '@/components/task/QuickCreateTaskModal';
 
 // Framer Motion Animation Variants
@@ -37,15 +38,48 @@ const itemVariants: Variants = {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { currentWorkspace, projects, setCurrentProject } = useAppStore();
 
+  React.useEffect(() => {
+    if (!currentWorkspace) return;
+
+    // The backend broadcasts task updates to "workspace_{id}" and "project_{id}" rooms.
+    const workspaceRoom = `workspace_${currentWorkspace.id}`;
+    const projectRooms = projects.map(p => `project_${p.id}`);
+    
+    socketService.subscribeRoom(workspaceRoom);
+    projectRooms.forEach(room => socketService.subscribeRoom(room));
+
+    const handleTaskUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard_tasks'] });
+    };
+
+    socketService.on('task:created', handleTaskUpdate);
+    socketService.on('task:updated', handleTaskUpdate);
+    socketService.on('task:deleted', handleTaskUpdate);
+    socketService.on('task:moved', handleTaskUpdate);
+
+    return () => {
+      socketService.unsubscribeRoom(workspaceRoom);
+      projectRooms.forEach(room => socketService.unsubscribeRoom(room));
+      socketService.off('task:created', handleTaskUpdate);
+      socketService.off('task:updated', handleTaskUpdate);
+      socketService.off('task:deleted', handleTaskUpdate);
+      socketService.off('task:moved', handleTaskUpdate);
+    };
+  }, [currentWorkspace?.id, projects, queryClient]);
+
   const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'analytics' | 'team'>('overview');
-  const [taskFilter, setTaskFilter] = useState<'ALL' | 'TODO' | 'IN_PROGRESS' | 'DONE' | 'URGENT'>('ALL');
+  const [taskFilter, setTaskFilter] = useState<'ALL' | 'DRAFT' | 'TODO' | 'IN_PROGRESS' | 'DONE' | 'URGENT'>('ALL');
   const [taskSearch, setTaskSearch] = useState('');
   const [taskSort, setTaskSort] = useState<'due_date' | 'priority' | 'title'>('due_date');
   const [currentPage, setCurrentPage] = useState(1);
   const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
+  const [aiInitialData, setAiInitialData] = useState<any>(null);
+  const [nlpInput, setNlpInput] = useState('');
+  const [isNlpParsing, setIsNlpParsing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const tasksPerPage = 6;
 
@@ -93,6 +127,23 @@ export const DashboardPage: React.FC = () => {
   });
   const members = useMemo(() => Array.isArray(rawMembers) ? rawMembers : ((rawMembers as any)?.items || []), [rawMembers]);
 
+  const handleNlpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nlpInput.trim()) return;
+    
+    setIsNlpParsing(true);
+    try {
+      const parsedData = await aiApi.parseNlpTask(nlpInput);
+      setAiInitialData(parsedData);
+      setNlpInput('');
+      setCreateTaskModalOpen(true);
+    } catch (err) {
+      console.error('Failed to parse NLP task', err);
+    } finally {
+      setIsNlpParsing(false);
+    }
+  };
+
   const handleManualSync = async () => {
     setSyncing(true);
     await refetchTasks();
@@ -122,6 +173,7 @@ export const DashboardPage: React.FC = () => {
   const filteredTasks = useMemo(() => {
     return tasks
       .filter((t: Task) => {
+        if (taskFilter === 'DRAFT') return t.status === 'DRAFT';
         if (taskFilter === 'TODO') return t.status === 'TODO';
         if (taskFilter === 'IN_PROGRESS') return t.status === 'IN_PROGRESS' || t.status === 'REVIEW';
         if (taskFilter === 'DONE') return t.status === 'DONE';
@@ -733,6 +785,7 @@ export const DashboardPage: React.FC = () => {
                       className="bg-surface border border-border rounded-lg px-2.5 py-1 text-xs font-semibold text-heading focus:ring-1 focus:ring-primary outline-none shadow-2xs cursor-pointer"
                     >
                       <option value="ALL">All Statuses</option>
+                      <option value="DRAFT">Draft</option>
                       <option value="TODO">TODO (Backlog)</option>
                       <option value="IN_PROGRESS">In Progress</option>
                       <option value="DONE">Completed</option>
@@ -1170,6 +1223,32 @@ export const DashboardPage: React.FC = () => {
             exit="hidden"
             className="space-y-6"
           >
+            {/* AI Smart Task Creation Bar */}
+            <div className="enterprise-card p-4 bg-gradient-to-r from-purple-500/10 via-background to-background border-purple-500/20">
+              <form onSubmit={handleNlpSubmit} className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-600 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={nlpInput}
+                    onChange={(e) => setNlpInput(e.target.value)}
+                    placeholder="Ask AI Copilot to create a task (e.g. 'Create a high priority bug for login issue by tomorrow')"
+                    className="w-full bg-transparent border-none focus:ring-0 text-sm font-medium text-heading placeholder:text-muted outline-none"
+                    disabled={isNlpParsing}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!nlpInput.trim() || isNlpParsing}
+                  className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-xs shrink-0"
+                >
+                  {isNlpParsing ? 'Parsing...' : 'Generate Task'}
+                </button>
+              </form>
+            </div>
+
             <div className="enterprise-card p-6">
               <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
                 <div>
@@ -1305,19 +1384,35 @@ export const DashboardPage: React.FC = () => {
       <footer className="pt-6 border-t border-border mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted">
         <div className="flex flex-wrap items-center gap-4">
           <span className="font-bold text-heading">TaskMaster Enterprise Cloud v2.4.0</span>
-          <span className="hidden sm:inline">•</span>
-          <div className="flex items-center gap-1.5 font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>System Status: 100% Operational (PostgreSQL + Redis + FastAPI)</span>
+          <span className="hidden sm:inline text-muted-foreground">•</span>
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-muted-foreground">Server Connected</span>
           </div>
+          <span className="hidden sm:inline text-muted-foreground">•</span>
+          <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-[10px] font-bold uppercase tracking-wider">Production</span>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span>Last Sync: <strong>{format(new Date(), 'HH:mm:ss')}</strong></span>
-          <span>•</span>
-          <span>© 2026 TaskMaster Enterprise</span>
-          <span>•</span>
-          <a href="https://github.com/DineshYadav06/Task-Management" target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
+        <div className="flex items-center gap-4 flex-wrap justify-end">
+          <span className="hidden sm:inline">Last Sync: <strong>{format(new Date(), 'HH:mm:ss')}</strong></span>
+          <span className="hidden sm:inline">•</span>
+          
+          <a href="/docs" target="_blank" className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+            <FileText className="w-3.5 h-3.5" />
+            <span>Documentation</span>
+          </a>
+          <span className="text-muted-foreground/30">•</span>
+          
+          <a href="/contact" target="_blank" className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Help & Support</span>
+          </a>
+          <span className="text-muted-foreground/30">•</span>
+
+          <a href="https://www.linkedin.com/in/dinesh-kumar-yadav-9555dd8114/" target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
             <span>Contact Developer</span>
             <ExternalLink className="w-3 h-3" />
           </a>

@@ -9,21 +9,23 @@ interface QuickCreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultStatus?: TaskStatus;
+  initialData?: any;
 }
 
 export const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   isOpen,
   onClose,
   defaultStatus = 'TODO',
+  initialData = null,
 }) => {
   const queryClient = useQueryClient();
   const { currentProject, currentWorkspace } = useAppStore();
   const { user } = useAuthStore();
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [description, setDescription] = useState(initialData?.description || '');
   const [status, setStatus] = useState<TaskStatus>(defaultStatus);
-  const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+  const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>(initialData?.priority || 'MEDIUM');
   const [storyPoints, setStoryPoints] = useState<number>(3);
   const [dueDate, setDueDate] = useState('');
   const [assigneeId, setAssigneeId] = useState<number | undefined>(user?.id);
@@ -38,6 +40,15 @@ export const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     queryFn: () => currentWorkspace?.organization_id ? orgApi.listMembers(currentWorkspace.organization_id) : Promise.resolve([]),
     enabled: !!currentWorkspace?.organization_id && isOpen,
   });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setTitle(initialData?.title || '');
+      setDescription(initialData?.description || '');
+      setPriority(initialData?.priority || 'MEDIUM');
+      setError(null);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -187,6 +198,7 @@ export const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
                 className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold text-heading focus:ring-2 focus:ring-primary outline-none transition-all shadow-2xs cursor-pointer"
               >
+                <option value="DRAFT">Draft</option>
                 <option value="TODO">TODO (Backlog)</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="REVIEW">Code Review</option>

@@ -24,7 +24,7 @@ class TaskModel(Base):
     title = Column(String(250), nullable=False, index=True)
     description = Column(Text, nullable=True)  # Markdown / Rich Text
     is_completed = Column(Boolean, default=False, nullable=False, index=True)
-    status = Column(String(50), default="TODO", nullable=False, index=True)  # TODO, IN_PROGRESS, REVIEW, DONE, BLOCKED
+    status = Column(String(50), default="TODO", nullable=False, index=True)  # DRAFT, TODO, IN_PROGRESS, REVIEW, DONE, BLOCKED
     priority = Column(String(50), default="MEDIUM", nullable=False, index=True)  # LOW, MEDIUM, HIGH, URGENT
     severity = Column(String(50), default="MINOR", nullable=False)  # TRIVIAL, MINOR, MAJOR, CRITICAL, BLOCKER
     story_points = Column(Integer, default=0, nullable=False)

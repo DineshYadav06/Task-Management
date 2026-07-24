@@ -39,8 +39,8 @@ class MongoDBManager:
         try:
             # Configure TLS parameters if connecting to Atlas / mongodb+srv
             client_options = {
-                "serverSelectionTimeoutMS": 5000,
-                "connectTimeoutMS": 5000,
+                "serverSelectionTimeoutMS": 3000,
+                "connectTimeoutMS": 3000,
             }
             if "mongodb+srv" in uri or "mongodb.net" in uri:
                 if CA_FILE:
@@ -127,54 +127,60 @@ class MongoDBManager:
         from app.core.security import get_password_hash
         from datetime import datetime, timedelta
 
-        # Check if users already exist
+        # Check if any user existed before we started seeding
         existing_user = db_session.query(UserModel).filter(
             (UserModel.email == "dineshkumaryadav12651@gmail.com") | (UserModel.username == "dineshkumar")
         ).first()
 
-        if not existing_user:
-            logger.info("Seeding initial enterprise users into database and MongoDB...")
+        # Check and seed Dinesh
+        dinesh_user = db_session.query(UserModel).filter(UserModel.email == "dineshkumaryadav12651@gmail.com").first()
+        if not dinesh_user:
+            logger.info("Seeding Dinesh user...")
             dinesh_user = UserModel(
                 username="dineshkumar",
                 email="dineshkumaryadav12651@gmail.com",
                 password_hash=get_password_hash("Dinesh@123"),
                 full_name="Dinesh Kumar Yadav",
                 role="Admin",
-                department="Engineering",
                 is_active=True,
-                is_verified=True,
             )
+            db_session.add(dinesh_user)
+
+        # Check and seed Admin
+        admin_user = db_session.query(UserModel).filter(UserModel.email == "admin@taskmaster.com").first()
+        if not admin_user:
+            logger.info("Seeding Admin user...")
             admin_user = UserModel(
                 username="admin",
                 email="admin@taskmaster.com",
                 password_hash=get_password_hash("Admin@123"),
                 full_name="Enterprise System Admin",
                 role="Admin",
-                department="Management",
                 is_active=True,
-                is_verified=True,
             )
+            db_session.add(admin_user)
+
+        # Check and seed Test User
+        test_user = db_session.query(UserModel).filter(UserModel.email == "test@example.com").first()
+        if not test_user:
+            logger.info("Seeding Test user...")
             test_user = UserModel(
                 username="testuser",
                 email="test@example.com",
                 password_hash=get_password_hash("password123"),
                 full_name="Test Engineer",
                 role="Member",
-                department="QA",
                 is_active=True,
-                is_verified=True,
             )
-            db_session.add_all([dinesh_user, admin_user, test_user])
-            db_session.commit()
-            db_session.refresh(dinesh_user)
-            db_session.refresh(admin_user)
-            db_session.refresh(test_user)
+            db_session.add(test_user)
 
-            # Sync users to MongoDB explicitly
-            self.save_model_to_mongodb(dinesh_user)
-            self.save_model_to_mongodb(admin_user)
-            self.save_model_to_mongodb(test_user)
+        db_session.commit()
 
+        if dinesh_user: self.save_model_to_mongodb(dinesh_user)
+        if admin_user: self.save_model_to_mongodb(admin_user)
+        if test_user: self.save_model_to_mongodb(test_user)
+
+        if not existing_user:  # Only seed projects if Dinesh was just created
             # Seed demo Project
             project = Project(
                 name="Enterprise SaaS Platform v2.0",

@@ -93,3 +93,60 @@ As an enterprise user, I want to execute workflow improvements based on:
             if similarity > 0.4:
                 duplicates.append({"task_id": t["id"], "title": t["title"], "similarity_score": round(similarity * 100, 1)})
         return sorted(duplicates, key=lambda x: x["similarity_score"], reverse=True)[:3]
+
+    @classmethod
+    def parse_nlp_task(cls, text: str) -> Dict[str, Any]:
+        """Parse natural language into task fields (title, priority, etc) using Gemini."""
+        model = cls._get_gemini_model()
+        if model:
+            try:
+                import json
+                prompt = f"""Extract task details from this natural language text and return ONLY a valid JSON object with no markdown formatting or backticks.
+                Text: "{text}"
+                Required keys: "title" (string), "priority" (string: LOW, MEDIUM, HIGH, URGENT), "description" (string)."""
+                
+                response = model.generate_content(prompt)
+                
+                # Clean up response string (in case Gemini returns markdown JSON blocks)
+                json_str = response.text.strip()
+                if json_str.startswith("```json"):
+                    json_str = json_str[7:]
+                if json_str.startswith("```"):
+                    json_str = json_str[3:]
+                if json_str.endswith("```"):
+                    json_str = json_str[:-3]
+                    
+                data = json.loads(json_str.strip())
+                return {
+                    "title": data.get("title", "New Task"),
+                    "priority": data.get("priority", "MEDIUM").upper(),
+                    "description": data.get("description", f"Generated from AI Copilot request: '{text}'"),
+                    "provider": "Gemini-1.5-Pro"
+                }
+            except Exception as exc:
+                logger.warning(f"Gemini generation error in parse_nlp_task: {exc}")
+
+        # Fallback simulation
+        text_lower = text.lower()
+        priority = "MEDIUM"
+        if "urgent" in text_lower or "blocker" in text_lower:
+            priority = "URGENT"
+        elif "high" in text_lower:
+            priority = "HIGH"
+        elif "low" in text_lower or "minor" in text_lower:
+            priority = "LOW"
+        
+        clean_title = text
+        for kw in ["urgent", "high priority", "low priority", "high", "low"]:
+            clean_title = clean_title.replace(kw, "")
+        
+        clean_title = clean_title.strip().capitalize()
+        if not clean_title:
+            clean_title = "New AI Task"
+
+        return {
+            "title": clean_title,
+            "priority": priority,
+            "description": f"Generated from AI Copilot request: '{text}'",
+            "provider": "Simulation Engine (Fallback)"
+        }

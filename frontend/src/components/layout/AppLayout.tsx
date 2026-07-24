@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Layers, LayoutDashboard, FolderKanban, Kanban, ListTodo, Calendar as CalendarIcon,
   BarChart3, Clock, Users, Bell, Settings, Sparkles, Search, Sun, Moon,
@@ -82,7 +82,7 @@ export const AppLayout: React.FC = () => {
       >
         {/* Company Logo Header */}
         <div className="h-14 px-3.5 border-b border-border flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5 overflow-hidden">
+          <Link to="/" className="flex items-center gap-2.5 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-extrabold shrink-0 shadow-xs">
               <Layers className="w-4.5 h-4.5" />
             </div>
@@ -92,7 +92,7 @@ export const AppLayout: React.FC = () => {
                 <span className="text-[10px] text-primary font-bold uppercase tracking-wider block mt-0.5">Enterprise Cloud</span>
               </div>
             )}
-          </div>
+          </Link>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="p-1 rounded-md text-muted hover:bg-secondary hover:text-foreground transition-colors"
@@ -183,6 +183,17 @@ export const AppLayout: React.FC = () => {
         <nav className="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto">
           {!sidebarCollapsed && <div className="text-[10px] font-bold text-muted uppercase px-2 mb-1.5">Views & Tools</div>}
           
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-md transition-all text-foreground hover:bg-secondary`
+            }
+            title={sidebarCollapsed ? 'Home Page' : ''}
+          >
+            <Layers className="w-4 h-4 shrink-0" />
+            {!sidebarCollapsed && <span>Main Home</span>}
+          </NavLink>
+
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
@@ -587,15 +598,23 @@ export const AppLayout: React.FC = () => {
               <div className="flex items-center gap-2 text-foreground">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
                 <span>
-                  <strong>Exploring in Guest Demo Mode:</strong> You can view boards and metrics freely without logging in. To create tasks, projects, or save data to MongoDB Atlas, please sign in.
+                  <strong>Read-Only Mode:</strong> You are currently viewing the application in read-only mode. Please sign in to create tasks, manage projects, or save changes.
                 </span>
               </div>
-              <button
-                onClick={() => navigate('/login')}
-                className="shrink-0 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all ml-3 shadow-xs"
-              >
-                Sign In / Register
-              </button>
+              <div className="flex gap-2 shrink-0 ml-3">
+                <button
+                  onClick={() => navigate('/')}
+                  className="px-3 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-heading font-bold transition-all border border-border shadow-xs"
+                >
+                  Exit to Home
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all shadow-xs"
+                >
+                  Sign In / Register
+                </button>
+              </div>
             </div>
           )}
           <div className="enterprise-container">

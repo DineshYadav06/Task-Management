@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('refresh_token');
     socketService.disconnect();
     set({ user: null, token: null, isAuthenticated: false });
-    window.location.href = '/login';
+    window.location.href = '/';
   },
 
   fetchUser: async () => {

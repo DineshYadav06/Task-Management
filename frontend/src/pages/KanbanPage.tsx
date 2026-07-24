@@ -14,7 +14,7 @@ export const KanbanPage: React.FC = () => {
   const [healthScore, setHealthScore] = useState<{ score: number; status: string } | null>(null);
 
   useEffect(() => {
-    const taskIdParam = searchParams.get('task');
+    const taskIdParam = searchParams.get('task'); 
     if (taskIdParam) {
       setSelectedTaskId(Number(taskIdParam));
     }

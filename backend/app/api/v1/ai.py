@@ -76,3 +76,16 @@ def detect_duplicates_endpoint(
     existing = [{"id": t.id, "title": t.title} for t in query.all()]
     duplicates = AIService.detect_duplicates(req.title, existing)
     return {"status": "success", "potential_duplicates": duplicates}
+
+
+class NLPTaskRequest(BaseModel):
+    text: str
+
+
+@router.post("/parse-nlp-task", response_model=Dict[str, Any])
+def parse_nlp_task_endpoint(
+    req: NLPTaskRequest,
+    current_user: UserModel = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Parse natural language into task fields (title, priority, etc)."""
+    return AIService.parse_nlp_task(req.text)

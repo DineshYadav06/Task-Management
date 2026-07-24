@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Layers, CheckCircle2, ShieldCheck, Building2, Lock } from 'lucide-react';
 
 export const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -53,9 +54,16 @@ export const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }
       </div>
 
       {/* Right Column: Clean White Authentication Surface */}
-      <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 bg-background">
-        <div className="w-full max-w-md bg-surface border border-border rounded-xl shadow-sm p-8 space-y-6">
-          {children}
+      <div className="lg:col-span-7 flex flex-col p-6 sm:p-12 bg-background relative">
+        <div className="absolute top-6 right-6 sm:top-12 sm:right-12">
+          <Link to="/" className="text-xs font-semibold text-muted hover:text-heading flex items-center gap-1.5 transition-colors">
+            &larr; Back to Home
+          </Link>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-full max-w-md bg-surface border border-border rounded-xl shadow-sm p-8 space-y-6">
+            {children}
+          </div>
         </div>
       </div>
     </div>

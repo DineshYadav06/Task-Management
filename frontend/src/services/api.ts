@@ -4,7 +4,7 @@ import {
   TimeLog, NotificationItem
 } from '@/types';
 
-const API_BASE = '/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
 export const formatApiError = (err: any): string => {
   if (!err) return 'An unexpected error occurred.';
@@ -106,7 +106,10 @@ api.interceptors.response.use(
       } else {
         isRefreshing = false;
         refreshSubscribers = [];
-        window.location.href = '/login';
+        if (localStorage.getItem('access_token')) {
+          localStorage.removeItem('access_token');
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
@@ -123,8 +126,19 @@ export const authApi = {
     });
     return res.data;
   },
+  adminLogin: async (formData: FormData) => {
+    // Requires email, password, and key_file
+    const res = await api.post('/auth/admin-login', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
   register: async (data: { username: string; email: string; password: string; full_name?: string; role?: string }) => {
     const res = await api.post<User>('/auth/register', data);
+    return res.data;
+  },
+  adminRegister: async (data: { email: string; password: string; security_key: string }) => {
+    const res = await api.post('/auth/admin-signup', data);
     return res.data;
   },
   getMe: async () => {
@@ -208,6 +222,10 @@ export const aiApi = {
   summarizeTask: async (task_id: number) => (await api.post('/ai/summarize-task', { task_id })).data,
   suggestPriority: async (title: string, description: string) => (await api.post('/ai/suggest-priority', { title, description })).data,
   generateDescription: async (draft_notes: string) => (await api.post('/ai/generate-description', { draft_notes })).data,
+  parseNlpTask: async (text: string) => {
+    const res = await api.post<{ title: string; priority: string; description: string }>('/ai/parse-nlp-task', { text });
+    return res.data;
+  },
 };
 
 export default api;

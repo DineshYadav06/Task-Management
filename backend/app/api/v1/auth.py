@@ -1,7 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Form, UploadFile, File
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+import bcrypt
+from app.cookies.utils import create_token, set_auth_cookie
+from app.config.database import AdminDb
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -14,7 +18,7 @@ from app.core.security import (
     decode_token,
 )
 from app.models.auth import UserModel, LoginHistory, AuditLog
-from app.schemas.auth import Token, UserCreate, UserResponse, UserLogin, UserUpdate, RefreshTokenRequest
+from app.schemas.auth import Token, UserCreate, UserResponse, UserLogin, UserUpdate, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.common import StandardResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Security"])
@@ -283,3 +287,163 @@ def oauth_login(provider: str, email: str, username: str, full_name: str = None,
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
+@router.post("/forgot-password", response_model=StandardResponse)
+async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)) -> Any:
+    """
+    Generate a password reset link (simulated email dispatch).
+    """
+    email_str = req.email.lower().strip()
+    user = db.query(UserModel).filter(UserModel.email == email_str).first()
+    
+    # We still return success even if user not found, to prevent email enumeration
+    if user and user.is_active:
+        # Create a special reset token valid for 15 minutes
+        reset_token = create_access_token(
+            data={"sub": str(user.id), "type": "reset"}, 
+            expires_delta=timedelta(minutes=15)
+        )
+        # Log the token for local testing since we don't have an email server
+        print("\n" + "="*50)
+        print("SIMULATED EMAIL DISPATCH:")
+        print(f"To: {user.email}")
+        print("Subject: Password Reset Request")
+        print(f"Reset Link: http://localhost:5173/reset-password?token={reset_token}")
+        print("="*50 + "\n")
+        
+    return {"status": "success", "message": "If an account with that email exists, we have sent a password reset link."}
+
+
+@router.post("/reset-password", response_model=StandardResponse)
+async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)) -> Any:
+    """
+    Reset password using a valid token.
+    """
+    try:
+        payload = decode_token(req.token)
+        if payload.get("type") != "reset":
+            raise HTTPException(status_code=400, detail="Invalid token type.")
+        
+        user_id = int(payload.get("sub"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+        
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="User not found or inactive.")
+        
+    # Update password in SQLAlchemy
+    user.password_hash = get_password_hash(req.new_password)
+    db.commit()
+    db.refresh(user)
+    
+    # Attempt to update MongoDB as well
+    try:
+        from app.mongodb_engine.models import UserDocument
+        mongo_user = await UserDocument.find_one({"email": user.email})
+        if mongo_user:
+            mongo_user.password = user.password_hash
+            await mongo_user.save()
+    except Exception as exc:
+        print(f"MongoDB password reset sync failed: {exc}")
+        
+    return {"status": "success", "message": "Password has been reset successfully."}
+
+
+from pydantic import BaseModel
+
+from app.schemas.admin_mongo import AdminMongoSchema
+
+ADMIN_COLLECTION = "Signup"
+
+class AdminSignupRequest(BaseModel):
+    email: str
+    password: str
+    security_key: str
+
+@router.post("/admin-signup")
+async def admin_signup(req: AdminSignupRequest):
+    collection = AdminDb[ADMIN_COLLECTION]
+    
+    existing = await collection.find_one({"email": req.email.strip().lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Admin with this email already exists")
+    
+    hashed_password = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    
+    # Use the Pydantic schema to construct and validate the MongoDB document
+    new_admin = AdminMongoSchema(
+        email=req.email.strip().lower(),
+        password=hashed_password,
+        security_key=req.security_key
+    )
+    
+    # Convert to dict for motor insertion
+    await collection.insert_one(new_admin.model_dump())
+    
+    return {"success": True, "message": "Admin registered successfully in MongoDB"}
+
+
+
+@router.post("/admin-login")
+async def admin_login(
+    response: Response,
+    email: str = Form(...),
+    password: str = Form(...),
+    key_file: UploadFile = File(...)
+):
+    collection = AdminDb[ADMIN_COLLECTION]
+
+    admin = await collection.find_one({
+        "email": email.strip().lower()
+    })
+
+    if not admin:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    try:
+        content = await key_file.read()
+        key_content = content.decode("utf-8").strip()
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid key file"
+        )
+
+    stored_password = admin.get("password")
+    if not stored_password or not bcrypt.checkpw(
+        password.encode("utf-8"),
+        stored_password.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    if admin.get("security_key") != key_content:
+        raise HTTPException(
+            status_code=401,
+            detail="Security key not matched"
+        )
+
+    token = create_token({
+        "email": email,
+        "role": "admin"
+    })
+
+    response = JSONResponse(
+        content={
+            "success": True,
+            "token": token,
+            "role": "admin",
+        }
+    )
+
+    set_auth_cookie(response, token)
+
+    return response
+

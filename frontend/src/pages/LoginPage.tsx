@@ -10,7 +10,6 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [forgotMsg, setForgotMsg] = useState('');
 
   useEffect(() => {
     const savedUsername = localStorage.getItem('remembered_username');
@@ -22,7 +21,6 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setForgotMsg('');
     try {
       if (rememberMe) {
         localStorage.setItem('remembered_username', username);
@@ -37,7 +35,7 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleForgotPassword = () => {
-    setForgotMsg('Please contact your Workspace Administrator or IT support desk to initiate a secure credential reset.');
+    navigate('/forgot-password');
   };
 
   return (
@@ -56,11 +54,7 @@ export const LoginPage: React.FC = () => {
         </div>
       )}
 
-      {forgotMsg && (
-        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 text-xs font-medium leading-relaxed">
-          {forgotMsg}
-        </div>
-      )}
+
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -122,14 +116,24 @@ export const LoginPage: React.FC = () => {
           </button>
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2"
-        >
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-          <span>{isLoading ? 'Authenticating...' : 'Continue to Workspace'}</span>
-        </button>
+        <div className="flex flex-col gap-3 mt-4">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+            <span>{isLoading ? 'Authenticating...' : 'Continue to Workspace'}</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="w-full h-10 rounded-lg bg-secondary border border-border hover:bg-secondary/80 text-heading font-semibold text-xs flex items-center justify-center transition-all"
+          >
+            Continue as Guest (No Login Required)
+          </button>
+        </div>
       </form>
 
       <div className="pt-4 border-t border-border text-center text-xs text-muted">

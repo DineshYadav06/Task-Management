@@ -102,6 +102,8 @@ async def move_task_card(
         task.status = "REVIEW"
     elif "TODO" in col_name_upper or "TO DO" in col_name_upper:
         task.status = "TODO"
+    elif "DRAFT" in col_name_upper:
+        task.status = "DRAFT"
 
     timeline = ActivityTimeline(
         task_id=task.id,

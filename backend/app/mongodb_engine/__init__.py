@@ -93,8 +93,8 @@ async def init_beanie_db(uri: Optional[str] = None, db_name: Optional[str] = Non
     target_db_name = db_name or settings.MONGODB_DB_NAME
     
     client_options = {
-        "serverSelectionTimeoutMS": 15000,
-        "connectTimeoutMS": 15000,
+        "serverSelectionTimeoutMS": 3000,
+        "connectTimeoutMS": 3000,
         "maxPoolSize": 5,
         "minPoolSize": 0,
         "retryWrites": True,
