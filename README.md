@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="./frontend/public/taskmaster-logo.svg" alt="TaskMaster Logo" width="120" height="120" />
   <h1>TaskMaster - Enterprise SaaS Task Management Platform</h1>
   
@@ -123,10 +123,11 @@
 - Redis (for background tasks & WebSockets)
 
 ### 2. Backend Setup
-\\\ash
+```bash
 cd backend
 python -m venv venv
-# Windows: venv\Scripts\activate | Mac/Linux: source venv/bin/activate
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
 pip install -r requirements.txt
 
@@ -135,10 +136,10 @@ pip install -r requirements.txt
 # SECRET_KEY=your_secret_key
 
 uvicorn app.main:app --reload --port 8001
-\\\
+```
 
 ### 3. Frontend Setup
-\\\ash
+```bash
 cd frontend
 npm install
 
@@ -146,7 +147,7 @@ npm install
 # VITE_API_URL=http://localhost:8001/api/v1
 
 npm run dev
-\\\
+```
 
 ---
 
