@@ -8,9 +8,6 @@
     <a href="https://taskmaster-tm.vercel.app" target="_blank">
       <img src="https://img.shields.io/badge/Live%20Demo-Vercel-black?style=for-the-badge&logo=vercel" alt="Live Demo" />
     </a>
-    <a href="https://taskmaster-z52i.onrender.com/api/v1/docs" target="_blank">
-      <img src="https://img.shields.io/badge/Backend-Render-black?style=for-the-badge&logo=render" alt="Backend Demo" />
-    </a>
   </p>
 
   <p>
@@ -30,7 +27,7 @@
 - [Screenshots](#-screenshots)
 - [Tech Stack](#-tech-stack)
 - [Local Development Setup](#-local-development-setup)
-- [Live Deployments](#-live-deployments)
+- [Live Link](#-live-link)
 
 ---
 
@@ -153,10 +150,9 @@ npm run dev
 
 ---
 
-## 🌍 Live Deployments
+## 🌍 Live Link
 
-- **Frontend (Vercel)**: [https://taskmaster-tm.vercel.app](https://taskmaster-tm.vercel.app)
-- **Backend (Render)**: [https://taskmaster-z52i.onrender.com](https://taskmaster-z52i.onrender.com)
+🚀 **[https://taskmaster-tm.vercel.app](https://taskmaster-tm.vercel.app)**
 
 ---
 
